@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply antialiased;
+    background-color: #0e0e0e;
+    color: #f5f5f5;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .gold-text {
+    color: #f5c400;
+  }
+  .bg-card {
+    background-color: #1a1a1a;
+  }
+  .bg-row {
+    background-color: #222222;
+  }
+  .bg-row-alt {
+    background-color: #1e1e1e;
+  }
+  .border-dark {
+    border-color: #333333;
+  }
+}
