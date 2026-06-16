@@ -6,12 +6,68 @@ import { MatchesList } from './components/MatchesList';
 import { KnockoutStage } from './components/KnockoutBracket';
 import { OndeAssistir } from './components/OndeAssistir';
 import { useTeams, useMatches } from './hooks/useWorldCup';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import { Loader2, AlertTriangle, Settings } from 'lucide-react';
+
+const CONFIG_ERROR = 'SUPABASE_NOT_CONFIGURED';
+
+function SetupScreen() {
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#0e0e0e' }}>
+      <div
+        className="max-w-lg w-full rounded-2xl p-8"
+        style={{ background: '#1a1a1a', border: '2px solid #f5c400' }}
+      >
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: '#f5c400' }}>
+            <Settings className="w-6 h-6 text-black" />
+          </div>
+          <div>
+            <h1 className="text-xl font-black text-white">Configuração necessária</h1>
+            <p className="text-sm text-gray-500">Variáveis de ambiente não encontradas</p>
+          </div>
+        </div>
+
+        <p className="text-gray-400 mb-6">
+          Para funcionar no Vercel, adicione as variáveis de ambiente do Supabase nas configurações do projeto.
+        </p>
+
+        <div className="rounded-xl p-5 mb-6" style={{ background: '#111', border: '1px solid #2a2a2a' }}>
+          <p className="text-xs font-black uppercase tracking-widest mb-4" style={{ color: '#f5c400' }}>
+            Passos no Vercel
+          </p>
+          <ol className="space-y-2 text-sm text-gray-300 list-decimal list-inside">
+            <li>Abra o projeto no <span className="text-white font-semibold">Dashboard do Vercel</span></li>
+            <li>Vá em <span className="text-white font-semibold">Settings → Environment Variables</span></li>
+            <li>Adicione as variáveis abaixo com seus valores</li>
+            <li>Clique em <span className="text-white font-semibold">Save</span> e depois <span className="text-white font-semibold">Redeploy</span></li>
+          </ol>
+        </div>
+
+        <div className="rounded-xl p-4 space-y-3 font-mono text-sm" style={{ background: '#0a0a0a', border: '1px solid #222' }}>
+          <p className="text-xs text-gray-600 uppercase tracking-wider mb-1">Variáveis necessárias:</p>
+          <div className="flex items-center gap-2">
+            <span className="text-green-400 font-bold">VITE_SUPABASE_URL</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-blue-400 font-bold">VITE_SUPABASE_ANON_KEY</span>
+          </div>
+          <p className="text-xs text-gray-600 mt-2 font-sans">
+            Os valores estão no arquivo <code className="text-yellow-400">.env</code> do projeto ou no painel do Supabase em <code className="text-yellow-400">Settings → API</code>.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function App() {
   const [activeTab, setActiveTab] = useState('overview');
   const { teams, loading: teamsLoading, error: teamsError } = useTeams();
   const { matches, loading: matchesLoading, error: matchesError } = useMatches();
+
+  if (teamsError === CONFIG_ERROR || matchesError === CONFIG_ERROR) {
+    return <SetupScreen />;
+  }
 
   const loading = teamsLoading || matchesLoading;
   const error = teamsError || matchesError;

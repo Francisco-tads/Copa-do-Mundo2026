@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseMisconfigured } from '../lib/supabase';
 import type { Team, Match, GroupStanding } from '../types';
+
+const CONFIG_ERROR = 'SUPABASE_NOT_CONFIGURED';
 
 export function useTeams() {
   const [teams, setTeams] = useState<Team[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(!supabaseMisconfigured);
+  const [error, setError] = useState<string | null>(supabaseMisconfigured ? CONFIG_ERROR : null);
 
   useEffect(() => {
+    if (supabaseMisconfigured) return;
+
     async function fetchTeams() {
       try {
         const { data, error: fetchError } = await supabase
@@ -19,7 +23,7 @@ export function useTeams() {
         if (fetchError) throw fetchError;
         setTeams(data || []);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch teams');
+        setError(err instanceof Error ? err.message : 'Erro ao buscar seleções');
       } finally {
         setLoading(false);
       }
@@ -33,10 +37,12 @@ export function useTeams() {
 
 export function useMatches(stage?: string) {
   const [matches, setMatches] = useState<Match[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(!supabaseMisconfigured);
+  const [error, setError] = useState<string | null>(supabaseMisconfigured ? CONFIG_ERROR : null);
 
   useEffect(() => {
+    if (supabaseMisconfigured) return;
+
     async function fetchMatches() {
       try {
         let query = supabase
@@ -58,7 +64,7 @@ export function useMatches(stage?: string) {
         if (fetchError) throw fetchError;
         setMatches(data || []);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch matches');
+        setError(err instanceof Error ? err.message : 'Erro ao buscar partidas');
       } finally {
         setLoading(false);
       }
@@ -72,10 +78,12 @@ export function useMatches(stage?: string) {
 
 export function useGroupStandings(groupId?: string) {
   const [standings, setStandings] = useState<GroupStanding[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(!supabaseMisconfigured);
+  const [error, setError] = useState<string | null>(supabaseMisconfigured ? CONFIG_ERROR : null);
 
   useEffect(() => {
+    if (supabaseMisconfigured) return;
+
     async function fetchStandings() {
       try {
         let query = supabase
@@ -97,7 +105,7 @@ export function useGroupStandings(groupId?: string) {
         if (fetchError) throw fetchError;
         setStandings(data || []);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch standings');
+        setError(err instanceof Error ? err.message : 'Erro ao buscar classificação');
       } finally {
         setLoading(false);
       }
@@ -110,6 +118,5 @@ export function useGroupStandings(groupId?: string) {
 }
 
 export function useGroups() {
-  const groups = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
-  return groups;
+  return ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 }
