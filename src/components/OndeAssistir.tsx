@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Tv, Clock, MapPin } from 'lucide-react';
+import { Tv, Clock, MapPin, ExternalLink } from 'lucide-react';
 import type { Team } from '../types';
 
 interface BroadcastMatch {
@@ -139,22 +139,27 @@ const SEMIFINAL_SCHEDULE: BroadcastDay[] = [
   },
 ];
 
-const channelStyle: Record<string, { bg: string; text: string; label: string }> = {
-  'Cazé TV':  { bg: '#1a1a1a', text: '#ffffff', label: 'Cazé\u00a0TV' },
-  'Globo':    { bg: '#1a6eb5', text: '#ffffff', label: 'Globo' },
-  'SBT':      { bg: '#e8bb00', text: '#000000', label: 'sbt' },
-  'NSports':  { bg: '#c41e1e', text: '#ffffff', label: 'N\u00a0SPORTS' },
+const channelStyle: Record<string, { bg: string; text: string; label: string; youtube: string }> = {
+  'Cazé TV':  { bg: '#1a1a1a', text: '#ffffff', label: 'Cazé\u00a0TV',   youtube: 'https://www.youtube.com/@CazeTV' },
+  'Globo':    { bg: '#1a6eb5', text: '#ffffff', label: 'ge\u00a0tv',      youtube: 'https://www.youtube.com/@getv' },
+  'SBT':      { bg: '#e8bb00', text: '#000000', label: 'sbt',            youtube: 'https://www.youtube.com/SBT' },
+  'NSports':  { bg: '#c41e1e', text: '#ffffff', label: 'N\u00a0SPORTS',  youtube: 'https://www.youtube.com/@NSports' },
 };
 
-function ChannelBadge({ name }: { name: string }) {
-  const style = channelStyle[name] || { bg: '#444', text: '#fff', label: name };
+function ChannelBadge({ name, showLink = false }: { name: string; showLink?: boolean }) {
+  const style = channelStyle[name] || { bg: '#444', text: '#fff', label: name, youtube: '#' };
   return (
-    <span
-      className="inline-flex items-center px-2 py-1 rounded text-xs font-bold tracking-wide whitespace-nowrap"
-      style={{ background: style.bg, color: style.text, border: '1px solid #333' }}
+    <a
+      href={style.youtube}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold tracking-wide whitespace-nowrap transition-all duration-150 hover:brightness-125 hover:scale-105"
+      style={{ background: style.bg, color: style.text, border: '1px solid #333', textDecoration: 'none' }}
+      title={`Assistir ${name} no YouTube`}
     >
       {style.label}
-    </span>
+      {showLink && <ExternalLink className="w-2.5 h-2.5 opacity-70" />}
+    </a>
   );
 }
 
@@ -305,7 +310,7 @@ export function OndeAssistir({ teams }: OndeAssistirProps) {
             </div>
 
             <div className="flex gap-2 flex-wrap">
-              {Object.keys(channelStyle).map(ch => <ChannelBadge key={ch} name={ch} />)}
+              {Object.keys(channelStyle).map(ch => <ChannelBadge key={ch} name={ch} showLink />)}
             </div>
           </div>
 
