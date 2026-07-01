@@ -48,4 +48,4 @@ export interface GroupStanding {
   red_cards: number;
 }
 
-export type Stage = 'Group Stage' | 'Round of 32' | 'Round of 16' | 'Quarter Finals' | 'Semi Finals' | 'Third Place' | 'Final';
+export type Stage = 'Group Stage' | 'Round of 16' | 'Quarter Finals' | 'Semi Finals' | 'Third Place' | 'Final';

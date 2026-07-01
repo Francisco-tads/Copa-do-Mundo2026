@@ -7,7 +7,6 @@ interface KnockoutStageProps {
 }
 
 const stageLabels: Record<string, string> = {
-  'Round of 32':    'Fase de 32 Avos',
   'Round of 16':    'Fase de 16 Avos',
   'Quarter Finals': 'Quartas de Final',
   'Semi Finals':    'Semifinais',
@@ -16,7 +15,6 @@ const stageLabels: Record<string, string> = {
 };
 
 const stageOrder = [
-  'Round of 32',
   'Round of 16',
   'Quarter Finals',
   'Semi Finals',
@@ -382,8 +380,8 @@ export function KnockoutStage({ matches }: KnockoutStageProps) {
   const availableStages = stageOrder.filter(s => grouped[s]?.length > 0);
   const champion = grouped['Final']?.[0]?.winner;
 
-  // Default to first available stage, or Round of 32
-  const [activeStage, setActiveStage] = useState(() => availableStages[0] ?? 'Round of 32');
+  // Default to first available stage, or Round of 16
+  const [activeStage, setActiveStage] = useState(() => availableStages[0] ?? 'Round of 16');
 
   if (matches.length === 0) return <EmptyState />;
 
