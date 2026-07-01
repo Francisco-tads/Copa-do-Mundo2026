@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase, supabaseMisconfigured } from '../lib/supabase';
 import type { Team, Match, GroupStanding } from '../types';
 
@@ -119,4 +119,51 @@ export function useGroupStandings(groupId?: string) {
 
 export function useGroups() {
   return ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+}
+
+export function useSyncMatches() {
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  const sync = useCallback(async () => {
+    if (supabaseMisconfigured) {
+      setSyncError(CONFIG_ERROR);
+      return { success: false, error: CONFIG_ERROR };
+    }
+
+    setSyncing(true);
+    setSyncError(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-matches`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Falha ao sincronizar');
+      }
+
+      setLastSync(new Date());
+      return { success: true as const, data: result };
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erro ao sincronizar partidas';
+      setSyncError(errorMsg);
+      return { success: false as const, error: errorMsg };
+    } finally {
+      setSyncing(false);
+    }
+  }, []);
+
+  return { sync, syncing, lastSync, syncError };
 }

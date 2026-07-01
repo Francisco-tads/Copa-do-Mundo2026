@@ -5,8 +5,8 @@ import { GroupStandingsGrid } from './components/GroupStandings';
 import { MatchesList } from './components/MatchesList';
 import { KnockoutStage } from './components/KnockoutBracket';
 import { OndeAssistir } from './components/OndeAssistir';
-import { useTeams, useMatches } from './hooks/useWorldCup';
-import { Loader2, AlertTriangle, Settings } from 'lucide-react';
+import { useTeams, useMatches, useSyncMatches } from './hooks/useWorldCup';
+import { Loader2, AlertTriangle, Settings, RefreshCw } from 'lucide-react';
 
 const CONFIG_ERROR = 'SUPABASE_NOT_CONFIGURED';
 
@@ -64,6 +64,12 @@ function App() {
   const [activeTab, setActiveTab] = useState('overview');
   const { teams, loading: teamsLoading, error: teamsError } = useTeams();
   const { matches, loading: matchesLoading, error: matchesError } = useMatches();
+  const { sync, syncing } = useSyncMatches();
+
+  const handleSync = async () => {
+    await sync();
+    window.location.reload();
+  };
 
   if (teamsError === CONFIG_ERROR || matchesError === CONFIG_ERROR) {
     return <SetupScreen />;
@@ -98,7 +104,7 @@ function App() {
         ) : activeTab === 'matches' ? (
           <MatchesList matches={groupStageMatches} />
         ) : activeTab === 'knockout' ? (
-          <KnockoutStage matches={knockoutMatches} />
+          <KnockoutStage matches={knockoutMatches} onSync={handleSync} syncing={syncing} />
         ) : activeTab === 'broadcast' ? (
           <OndeAssistir teams={teams} />
         ) : null}

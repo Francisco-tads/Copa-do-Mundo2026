@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Trophy, Clock, MapPin, Star } from 'lucide-react';
+import { Trophy, Clock, MapPin, Star, RefreshCw } from 'lucide-react';
 import type { Match } from '../types';
 
 interface KnockoutStageProps {
   matches: Match[];
+  onSync?: () => Promise<void>;
+  syncing?: boolean;
 }
 
 const stageLabels: Record<string, string> = {
@@ -372,7 +374,7 @@ function EmptyState() {
 }
 
 // ─── Main export ──────────────────────────────────────────────
-export function KnockoutStage({ matches }: KnockoutStageProps) {
+export function KnockoutStage({ matches, onSync, syncing }: KnockoutStageProps) {
   const grouped: Record<string, Match[]> = {};
   for (const s of stageOrder) grouped[s] = [];
   matches.forEach(m => { if (grouped[m.stage]) grouped[m.stage].push(m); });
@@ -390,6 +392,25 @@ export function KnockoutStage({ matches }: KnockoutStageProps) {
   return (
     <div>
       {champion && <ChampionBanner champion={champion} />}
+
+      {/* Sync button */}
+      {onSync && (
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={onSync}
+            disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-black transition-all duration-200 disabled:opacity-50"
+            style={{
+              background: 'rgba(244,196,48,0.12)',
+              border: '1px solid rgba(244,196,48,0.35)',
+              color: '#F4C430',
+            }}
+          >
+            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Sincronizando...' : 'Atualizar Jogos'}
+          </button>
+        </div>
+      )}
 
       {availableStages.length > 1 && (
         <StageNav stages={availableStages} active={activeStage} onChange={setActiveStage} />
