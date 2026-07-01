@@ -7,65 +7,63 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const WORLD_CUP_API = "https://worldcupjson.net/matches";
+const FIXTURES_API = "https://www.thestatsapi.com/world-cup/data/fixtures.json";
 
-interface ApiMatch {
-  id: number;
-  fifa_id: string;
-  status: string;
-  home_team: {
-    name: string;
-    code: string;
-    goals: number | null;
-    penalties?: number | null;
-  };
-  away_team: {
-    name: string;
-    code: string;
-    goals: number | null;
-    penalties?: number | null;
-  };
-  home_team_events?: Array<{
-    type: string;
-    player: string;
-    time: string;
-  }>;
-  away_team_events?: Array<{
-    type: string;
-    player: string;
-    time: string;
-  }>;
-  datetime: string;
-  stage_name: string;
-  stadium?: string;
-  location?: string;
+interface ApiFixture {
+  matchNumber: number;
+  date: string;
+  kickoffUtc: string;
+  stage: string;
+  group: string | null;
+  homeTeam: string;
+  awayTeam: string;
+  stadium: string;
+  hostCity: string;
+}
+
+interface ApiFixturesResponse {
+  fixtures: ApiFixture[];
 }
 
 function mapStage(apiStage: string): string {
   const stageMap: Record<string, string> = {
-    "First stage": "Group Stage",
-    "Group stage": "Group Stage",
-    "Round of 16": "Round of 16",
-    "Round of 32": "Round of 32",
-    "Quarter-finals": "Quarter Finals",
-    "Quarter-final": "Quarter Finals",
-    "Semi-finals": "Semi Finals",
-    "Semi-final": "Semi Finals",
-    "Third Place": "Third Place",
-    "Play-off for third place": "Third Place",
-    "Final": "Final",
+    "group-stage": "Group Stage",
+    "round-of-32": "Round of 32",
+    "round-of-16": "Round of 16",
+    "quarter-finals": "Quarter Finals",
+    "semi-finals": "Semi Finals",
+    "third-place": "Third Place",
+    "final": "Final",
   };
   return stageMap[apiStage] || apiStage;
 }
 
-function mapStatus(apiStatus: string): string {
-  const statusMap: Record<string, string> = {
-    "completed": "completed",
-    "in_progress": "live",
-    "future": "scheduled",
-    "pending": "scheduled",
+function getDayOfWeek(dateStr: string): string {
+  const days = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
+  const date = new Date(dateStr + 'T12:00:00');
+  return days[date.getDay()];
+}
+
+function formatHostCity(city: string): string {
+  const cityMap: Record<string, string> = {
+    'mexico-city': 'Cidade do México',
+    'guadalajara': 'Guadalajara',
+    'toronto': 'Toronto',
+    'los-angeles': 'Los Angeles',
+    'boston': 'Boston',
+    'vancouver': 'Vancouver',
+    'new-york': 'New York',
+    'san-francisco': 'San Francisco',
+    'philadelphia': 'Philadelphia',
+    'houston': 'Houston',
+    'dallas': 'Dallas',
+    'monterrey': 'Monterrey',
+    'miami': 'Miami',
+    'atlanta': 'Atlanta',
+    'seattle': 'Seattle',
+    'kansas-city': 'Kansas City',
   };
-  return statusMap[apiStatus] || "scheduled";
+  return cityMap[city] || city.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
 Deno.serve(async (req: Request) => {
@@ -78,45 +76,17 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch matches from World Cup API
-    let apiMatches: ApiMatch[] = [];
+    // Fetch fixtures from TheStatsAPI
+    let fixtures: ApiFixture[] = [];
     try {
-      const response = await fetch(`${WORLD_CUP_API}?by_date=DESC`);
+      const response = await fetch(FIXTURES_API);
       if (response.ok) {
-        apiMatches = await response.json();
+        const data: ApiFixturesResponse = await response.json();
+        fixtures = data.fixtures || [];
       }
     } catch (e) {
-      console.log("API fetch failed, will return current DB data");
+      console.log("API fetch failed:", e);
     }
-
-    // Also try /matches/today and /matches/tomorrow
-    try {
-      const todayResponse = await fetch(`${WORLD_CUP_API}/today?by_date=DESC`);
-      if (todayResponse.ok) {
-        const todayMatches = await todayResponse.json();
-        apiMatches = [...apiMatches, ...todayMatches];
-      }
-    } catch (e) {
-      console.log("Today endpoint failed");
-    }
-
-    try {
-      const tomorrowResponse = await fetch(`${WORLD_CUP_API}/tomorrow?by_date=DESC`);
-      if (tomorrowResponse.ok) {
-        const tomorrowMatches = await tomorrowResponse.json();
-        apiMatches = [...apiMatches, ...tomorrowMatches];
-      }
-    } catch (e) {
-      console.log("Tomorrow endpoint failed");
-    }
-
-    // Remove duplicates based on fifa_id
-    const uniqueMatches = apiMatches.reduce((acc: ApiMatch[], match: ApiMatch) => {
-      if (!acc.find(m => m.fifa_id === match.fifa_id)) {
-        acc.push(match);
-      }
-      return acc;
-    }, []);
 
     // Get teams mapping from DB
     const { data: teams } = await supabase
@@ -125,84 +95,69 @@ Deno.serve(async (req: Request) => {
 
     const teamMap = new Map<string, number>();
     teams?.forEach(t => {
-      teamMap.set(t.code.toUpperCase(), t.id);
       teamMap.set(t.name.toLowerCase(), t.id);
+      teamMap.set(t.code.toLowerCase(), t.id);
     });
 
-    // Update matches in DB
+    // Team name mappings for API names that differ
+    const teamNameMappings: Record<string, string> = {
+      'cote divoire': 'ivory coast',
+      'cabo verde': 'cape verde',
+      'ir iran': 'iran',
+      'korea republic': 'south korea',
+      'turkiye': 'turkey',
+      'bosnia and herzegovina': 'bosnia',
+      'united states': 'usa',
+    };
+
+    function getTeamId(teamName: string): number | null {
+      const normalized = teamName.toLowerCase();
+      const mapped = teamNameMappings[normalized] || normalized;
+      return teamMap.get(mapped) || null;
+    }
+
     let updated = 0;
     let errors = 0;
 
-    for (const apiMatch of uniqueMatches) {
-      const homeTeamId = teamMap.get(apiMatch.home_team?.code?.toUpperCase()) ||
-                         teamMap.get(apiMatch.home_team?.name?.toLowerCase());
-      const awayTeamId = teamMap.get(apiMatch.away_team?.code?.toUpperCase()) ||
-                         teamMap.get(apiMatch.away_team?.name?.toLowerCase());
+    for (const fixture of fixtures) {
+      const matchNumber = fixture.matchNumber;
 
-      if (!homeTeamId && !awayTeamId) continue;
+      // Extract time from kickoffUtc
+      const kickoffTime = fixture.kickoffUtc ? fixture.kickoffUtc.split('T')[1]?.substring(0, 5) : null;
 
-      // Check for extra time based on events
-      const hasExtraTime = false;
-      const hasPenalties = !!(apiMatch.home_team_events?.some(e =>
-        e.type.toLowerCase().includes("penalty")) ||
-        apiMatch.away_team_events?.some(e => e.type.toLowerCase().includes("penalty")));
+      // Map stage
+      const stage = mapStage(fixture.stage);
 
-      // Determine winner
-      let winnerId = null;
-      if (apiMatch.status === "completed" && apiMatch.home_team?.goals != null && apiMatch.away_team?.goals != null) {
-        if (apiMatch.home_team.goals > apiMatch.away_team.goals) {
-          winnerId = homeTeamId;
-        } else if (apiMatch.away_team.goals > apiMatch.home_team.goals) {
-          winnerId = awayTeamId;
-        } else if (apiMatch.home_team.penalties && apiMatch.away_team.penalties) {
-          if (apiMatch.home_team.penalties > apiMatch.away_team.penalties) {
-            winnerId = homeTeamId;
-          } else {
-            winnerId = awayTeamId;
-          }
-        }
+      // Get home/away team IDs if they're actual team names (not placeholders like "Winner Match X")
+      let homeTeamId = null;
+      let awayTeamId = null;
+
+      if (!fixture.homeTeam.includes('Winner') && !fixture.homeTeam.includes('Loser') && !fixture.homeTeam.includes('Group')) {
+        homeTeamId = getTeamId(fixture.homeTeam);
+      }
+      if (!fixture.awayTeam.includes('Winner') && !fixture.awayTeam.includes('Loser') && !fixture.awayTeam.includes('Group')) {
+        awayTeamId = getTeamId(fixture.awayTeam);
       }
 
-      const matchDate = apiMatch.datetime ? apiMatch.datetime.split("T")[0] : null;
-      const matchTime = apiMatch.datetime
-        ? new Date(apiMatch.datetime).toTimeString().slice(0, 5)
-        : null;
-
-      // Find existing match by stage and teams
-      const { data: existingMatch } = await supabase
+      // Update match
+      const { error } = await supabase
         .from("matches")
-        .select("id")
-        .eq("stage", mapStage(apiMatch.stage_name))
-        .or(`home_team_id.eq.${homeTeamId},away_team_id.eq.${awayTeamId}`)
-        .limit(1);
+        .update({
+          match_date: fixture.date,
+          match_time: kickoffTime,
+          day_of_week: getDayOfWeek(fixture.date),
+          stadium: fixture.stadium,
+          city: formatHostCity(fixture.hostCity),
+          ...(homeTeamId && { home_team_id: homeTeamId }),
+          ...(awayTeamId && { away_team_id: awayTeamId }),
+        })
+        .eq("match_number", matchNumber);
 
-      if (existingMatch && existingMatch.length > 0) {
-        const { error } = await supabase
-          .from("matches")
-          .update({
-            home_team_id: homeTeamId,
-            away_team_id: awayTeamId,
-            home_score: apiMatch.home_team?.goals,
-            away_score: apiMatch.away_team?.goals,
-            home_penalties: apiMatch.home_team?.penalties,
-            away_penalties: apiMatch.away_team?.penalties,
-            has_extra_time: hasExtraTime,
-            has_penalties: hasPenalties,
-            winner_id: winnerId,
-            status: mapStatus(apiMatch.status),
-            match_date: matchDate,
-            match_time: matchTime,
-            stadium: apiMatch.stadium,
-            city: apiMatch.location,
-          })
-          .eq("id", existingMatch[0].id);
-
-        if (error) {
-          console.error("Update error:", error);
-          errors++;
-        } else {
-          updated++;
-        }
+      if (error) {
+        console.error(`Error updating match ${matchNumber}:`, error);
+        errors++;
+      } else {
+        updated++;
       }
     }
 
@@ -215,16 +170,14 @@ Deno.serve(async (req: Request) => {
         away_team:teams!matches_away_team_id_fkey(*),
         winner:teams!matches_winner_id_fkey(*)
       `)
-      .neq("stage", "Group Stage")
       .order("match_number");
 
     return new Response(JSON.stringify({
       success: true,
-      message: `Synchronized ${updated} matches`,
-      api_matches_found: uniqueMatches.length,
+      message: `Atualizado ${updated} partidas`,
+      fixtures_found: fixtures.length,
       errors,
       matches: dbMatches || [],
-      api_status: uniqueMatches.length > 0 ? "API active" : "API returned no data (may be offline or no matches scheduled)"
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
