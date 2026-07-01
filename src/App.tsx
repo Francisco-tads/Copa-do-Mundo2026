@@ -79,7 +79,8 @@ function App() {
   const error = teamsError || matchesError;
 
   const groupStageMatches = matches.filter(m => m.stage === 'Group Stage');
-  const knockoutMatches = matches.filter(m => m.stage !== 'Group Stage');
+  const roundOf32Matches = matches.filter(m => m.stage === 'Round of 32');
+  const knockoutMatches = matches.filter(m => m.stage !== 'Group Stage' && m.stage !== 'Round of 32');
 
   return (
     <div className="min-h-screen" style={{ background: '#0e0e0e' }}>
@@ -104,7 +105,7 @@ function App() {
         ) : activeTab === 'matches' ? (
           <MatchesList matches={groupStageMatches} />
         ) : activeTab === 'knockout' ? (
-          <KnockoutStage matches={knockoutMatches} onSync={handleSync} syncing={syncing} />
+          <KnockoutStage matches={knockoutMatches} roundOf32Matches={roundOf32Matches} onSync={handleSync} syncing={syncing} />
         ) : activeTab === 'broadcast' ? (
           <OndeAssistir teams={teams} />
         ) : null}

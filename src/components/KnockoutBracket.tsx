@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { Trophy, Clock, MapPin, Star, RefreshCw } from 'lucide-react';
+import { Trophy, Clock, MapPin, Star, RefreshCw, CheckCircle2 } from 'lucide-react';
 import type { Match } from '../types';
 
 interface KnockoutStageProps {
   matches: Match[];
+  roundOf32Matches?: Match[];
   onSync?: () => Promise<void>;
   syncing?: boolean;
 }
 
 const stageLabels: Record<string, string> = {
+  'Round of 32':    'Fase de 32 Avos',
   'Round of 16':    'Fase de 16 Avos',
   'Quarter Finals': 'Quartas de Final',
   'Semi Finals':    'Semifinais',
@@ -373,8 +375,75 @@ function EmptyState() {
   );
 }
 
+// ─── Recent Results Section (Round of 32) ───────────────────────
+function RecentResultsSection({ matches }: { matches: Match[] }) {
+  const completedMatches = matches.filter(m => m.status === 'completed');
+  const upcomingMatches = matches.filter(m => m.status !== 'completed');
+
+  if (completedMatches.length === 0 && upcomingMatches.length === 0) return null;
+
+  const byDate = groupByDate(matches);
+
+  return (
+    <section className="mb-10">
+      {/* Section Header */}
+      <div className="flex items-center gap-3 mb-6">
+        <CheckCircle2 className="w-6 h-6" style={{ color: '#22c55e' }} />
+        <h2 className="text-xl font-black text-white tracking-wide">Resultados Recentes</h2>
+        <span className="text-sm text-gray-500">Fase de 32 Avos</span>
+      </div>
+
+      {/* Results Grid */}
+      <div className="space-y-1">
+        {byDate.map(({ key, dayStr, dateStr, matches: dayMatches }) => {
+          const completed = dayMatches.filter(m => m.status === 'completed');
+          const upcoming = dayMatches.filter(m => m.status !== 'completed');
+
+          if (completed.length === 0 && upcoming.length === 0) return null;
+
+          return (
+            <div key={key}>
+              <DateHeader dayStr={dayStr} dateStr={dateStr} />
+              <div className="space-y-2">
+                {completed.map((match, idx) => (
+                  <MatchCard key={match.id} match={match} index={idx} />
+                ))}
+                {upcoming.map((match, idx) => (
+                  <MatchCard key={match.id} match={match} index={completed.length + idx} />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Stats Summary */}
+      {completedMatches.length > 0 && (
+        <div
+          className="mt-6 rounded-xl p-4 flex items-center justify-between"
+          style={{ background: 'rgba(34, 197, 94, 0.08)', border: '1px solid rgba(34, 197, 94, 0.2)' }}
+        >
+          <span className="text-sm text-gray-400">
+            {completedMatches.length} partida{completedMatches.length !== 1 ? 's' : ''} realizada{completedMatches.length !== 1 ? 's' : ''}
+          </span>
+          <span className="text-sm font-bold text-green-400">
+            {upcomingMatches.length} pendente{upcomingMatches.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+      )}
+
+      {/* Divider */}
+      <div className="my-8 flex items-center gap-4">
+        <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(244,196,48,0.3))' }} />
+        <span className="text-xs text-gray-600 font-bold tracking-widest uppercase">Próximas Fases</span>
+        <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(244,196,48,0.3), transparent)' }} />
+      </div>
+    </section>
+  );
+}
+
 // ─── Main export ──────────────────────────────────────────────
-export function KnockoutStage({ matches, onSync, syncing }: KnockoutStageProps) {
+export function KnockoutStage({ matches, roundOf32Matches = [], onSync, syncing }: KnockoutStageProps) {
   const grouped: Record<string, Match[]> = {};
   for (const s of stageOrder) grouped[s] = [];
   matches.forEach(m => { if (grouped[m.stage]) grouped[m.stage].push(m); });
@@ -382,10 +451,13 @@ export function KnockoutStage({ matches, onSync, syncing }: KnockoutStageProps) 
   const availableStages = stageOrder.filter(s => grouped[s]?.length > 0);
   const champion = grouped['Final']?.[0]?.winner;
 
+  // Check if there are Round of 32 matches to display
+  const hasRoundOf32 = roundOf32Matches.length > 0;
+
   // Default to first available stage, or Round of 16
   const [activeStage, setActiveStage] = useState(() => availableStages[0] ?? 'Round of 16');
 
-  if (matches.length === 0) return <EmptyState />;
+  if (matches.length === 0 && roundOf32Matches.length === 0) return <EmptyState />;
 
   const stageMatches = grouped[activeStage] ?? [];
 
@@ -412,15 +484,22 @@ export function KnockoutStage({ matches, onSync, syncing }: KnockoutStageProps) 
         </div>
       )}
 
+      {/* Show Round of 32 results if available */}
+      {hasRoundOf32 && <RecentResultsSection matches={roundOf32Matches} />}
+
       {availableStages.length > 1 && (
         <StageNav stages={availableStages} active={activeStage} onChange={setActiveStage} />
       )}
 
-      {stageMatches.length > 0 ? (
+      {availableStages.length === 1 && stageMatches.length > 0 && (
         <StageSection stage={activeStage} stageMatches={stageMatches} />
-      ) : (
-        <EmptyState />
       )}
+
+      {availableStages.length > 1 && stageMatches.length > 0 ? (
+        <StageSection stage={activeStage} stageMatches={stageMatches} />
+      ) : availableStages.length === 0 && !hasRoundOf32 ? (
+        <EmptyState />
+      ) : null}
     </div>
   );
 }
